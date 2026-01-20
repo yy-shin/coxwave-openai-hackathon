@@ -103,7 +103,11 @@ export function ChatKitPanel({
     }, [])
 
   const chatkit = useChatKit({
-    api: { url: CHATKIT_API_URL, domainKey: CHATKIT_API_DOMAIN_KEY },
+    api: {
+      url: CHATKIT_API_URL,
+      domainKey: CHATKIT_API_DOMAIN_KEY,
+      uploadStrategy: { type: "two_phase" },
+    },
     theme: {
       density: "spacious",
       colorScheme: theme,
@@ -126,6 +130,11 @@ export function ChatKitPanel({
     },
     composer: {
       placeholder: getPlaceholder(cat.name),
+      attachments: {
+        enabled: true,
+        accept: { "image/*": [".png", ".jpg", ".jpeg", ".gif", ".webp"] },
+        maxCount: 10,
+      },
     },
     threadItemActions: {
       feedback: false,
