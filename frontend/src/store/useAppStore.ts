@@ -82,6 +82,8 @@ type AppState = {
   updateClip: (clipIndex: number, updates: Partial<Clip>) => void;
   isGeneratingVideos: boolean;
   setIsGeneratingVideos: (isGenerating: boolean) => void;
+  isCreatingFinalVideo: boolean;
+  setIsCreatingFinalVideo: (isCreating: boolean) => void;
 };
 
 const SPEECH_TIMEOUT_MS = 10_000;
@@ -365,5 +367,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }),
     isGeneratingVideos: false,
     setIsGeneratingVideos: (isGenerating) => set({ isGeneratingVideos: isGenerating }),
+    isCreatingFinalVideo: false,
+    setIsCreatingFinalVideo: (isCreating) => set({ isCreatingFinalVideo: isCreating }),
   };
 });

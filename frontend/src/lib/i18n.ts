@@ -34,10 +34,15 @@ export const translations = {
     videoNotPlayable: "비디오를 재생할 수 없습니다.",
     generatingWith: (model: string) => `${model}로 생성 중...`,
     noVideosForClip: "이 클립에 생성된 비디오가 없습니다",
+    selectVideoPrompt: "아래에서 비디오를 선택하세요",
     generatedVideos: (count: number) => `생성된 비디오 (${count}개)`,
     clipSelectionStatus: (selected: number, total: number) =>
       `${selected} / ${total} 클립 선택 완료`,
+    selected: "선택됨",
     createFinalVideo: "최종 비디오 생성",
+    creating: "생성 중...",
+    creatingFinalVideo: "최종 비디오 생성 중...",
+    creatingFinalVideoDesc: "선택한 클립들을 하나의 영상으로 합치고 있습니다",
 
     // Final Video Panel
     finalVideo: "최종 비디오",
@@ -83,10 +88,15 @@ export const translations = {
     videoNotPlayable: "Cannot play this video.",
     generatingWith: (model: string) => `Generating with ${model}...`,
     noVideosForClip: "No videos generated for this clip",
+    selectVideoPrompt: "Select a video below",
     generatedVideos: (count: number) => `Generated Videos (${count})`,
     clipSelectionStatus: (selected: number, total: number) =>
       `${selected} / ${total} clips selected`,
+    selected: "Selected",
     createFinalVideo: "Create Final Video",
+    creating: "Creating...",
+    creatingFinalVideo: "Creating Final Video...",
+    creatingFinalVideoDesc: "Merging selected clips into one video",
 
     // Final Video Panel
     finalVideo: "Final Video",
