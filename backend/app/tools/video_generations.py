@@ -21,7 +21,9 @@ from app.video_project_state import GenerationInput, ReferenceImage, VideoProjec
 class SegmentGeneration(BaseModel):
     """Video generation results for a single storyboard segment."""
 
-    segment_index: int = Field(..., ge=0, description="Index of the segment in the storyboard")
+    segment_index: int = Field(
+        ..., ge=0, description="Index of the segment in the storyboard"
+    )
     scene_description: str | None = Field(None, description="Description of the scene")
     status: Literal["pending", "in_progress", "completed", "failed"] = Field(
         "pending", description="Status of this segment's video generation"
@@ -35,7 +37,9 @@ class VideoGenerations(BaseModel):
     """Container for video generation results linked to a project."""
 
     project_id: str = Field(..., description="Unique identifier for the project")
-    created_at: str = Field(..., description="ISO 8601 timestamp when generation started")
+    created_at: str = Field(
+        ..., description="ISO 8601 timestamp when generation started"
+    )
     status: Literal["pending", "in_progress", "completed", "failed"] = Field(
         "pending", description="Overall status of video generation"
     )
@@ -83,7 +87,7 @@ def _convert_generation_input_to_provider_input(
             reference_images=reference_images,
         )
     else:
-        # For unsupported providers (like "kling"), default to veo
+        # For unsupported providers default to veo
         return VeoInput(
             provider="veo",
             prompt=gen_input.prompt,
@@ -165,7 +169,9 @@ async def generate_videos_from_project(
     for segment_index, segment in enumerate(state.storyboard.segments):
         # Build GenerationConfig from segment duration and project aspect ratio
         duration = _get_validated_duration(segment.duration)
-        aspect_ratio = state.aspect_ratio if state.aspect_ratio in ("16:9", "9:16") else "9:16"
+        aspect_ratio = (
+            state.aspect_ratio if state.aspect_ratio in ("16:9", "9:16") else "9:16"
+        )
         config = GenerationConfig(
             duration=duration,
             aspect_ratio=aspect_ratio,  # type: ignore
@@ -209,9 +215,7 @@ async def generate_videos_from_project(
             completed_results = await service.wait_for_batch(videos_to_wait)
 
             # Update results with completed statuses
-            result_map = {
-                (r.provider, r.video.id): r for r in completed_results
-            }
+            result_map = {(r.provider, r.video.id): r for r in completed_results}
 
             for seg in segments:
                 updated_results = []

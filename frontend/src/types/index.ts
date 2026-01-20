@@ -66,7 +66,7 @@ export type BackendReferenceImage = {
 };
 
 export type BackendGenerationInput = {
-  provider: "veo" | "sora" | "kling";
+  provider: "veo" | "sora";
   prompt: string;
   negativePrompt: string | null;
   referenceImages: BackendReferenceImage[] | null;
@@ -141,7 +141,7 @@ export function transformSegmentToClip(segment: BackendSegment): Clip {
     } as SoraClip;
   }
 
-  // Default to VeoClip for "veo" and "kling" (kling uses similar format)
+  // Default to VeoClip for "veo"
   return {
     ...baseClip,
     provider: "veo",

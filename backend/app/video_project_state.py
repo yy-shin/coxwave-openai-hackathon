@@ -17,7 +17,7 @@ class ReferenceImage(BaseModel):
 class GenerationInput(BaseModel):
     """Input configuration for a video generation provider."""
 
-    provider: Literal["veo", "sora", "kling"]
+    provider: Literal["veo", "sora"]
     prompt: str
     negative_prompt: str | None = None
     reference_images: list[ReferenceImage] | None = None

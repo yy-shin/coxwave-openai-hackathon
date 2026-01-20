@@ -25,9 +25,7 @@ from .video_project_store import VideoProjectStore
 class GenerationInputData(BaseModel):
     """Input model for a generation provider configuration."""
 
-    provider: str = Field(
-        description="Video generation provider ('veo', 'sora', 'kling')"
-    )
+    provider: str = Field(description="Video generation provider ('veo', 'sora')")
     prompt: str = Field(description="The prompt for video generation")
     negative_prompt: str | None = Field(
         default=None, description="Negative prompt to avoid certain elements"
@@ -78,7 +76,6 @@ high-quality marketing videos for games and products.
    - Select appropriate video model for each segment:
      - Sora: realistic/cinematic footage
      - Veo: stylized/artistic content
-     - Kling: 2D animation/game footage
    - Call `start_video_generation` to begin the process
 
 ## Tools
@@ -91,7 +88,7 @@ high-quality marketing videos for games and products.
 ## Important Notes
 - Keep responses concise and professional
 - Always confirm understanding before proceeding to next step
-- Video models: Sora (realistic/cinematic), Veo (stylized/artistic), Kling (2D animation/game footage)
+- Video models: Sora (realistic/cinematic), Veo (stylized/artistic)
 - Once an action has been performed, it will be reflected as a tag in the thread content:
   - <STORYBOARD_CREATED>: Storyboard was created
   - <STORYBOARD_APPROVED>: User approved storyboard
