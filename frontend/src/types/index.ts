@@ -58,44 +58,112 @@ export type VideoCandidate = {
 };
 
 // ============================================
-// Cat Types (for Cat Lounge feature)
+// Backend Project State Types (from update_project_status)
 // ============================================
-export type CatColorPattern =
-  | "orange_tabby"
-  | "gray_tabby"
-  | "calico"
-  | "tuxedo"
-  | "siamese"
-  | "void";
 
-export type CatSpeechPayload = {
-  text: string;
-  mood?: "happy" | "neutral" | "sleepy";
+export type BackendReferenceImage = {
+  url: string;
 };
 
-export type CatStatePayload = {
-  threadId: string | null;
-  name: string;
-  colorPattern: CatColorPattern;
-  energy: number;
-  happiness: number;
-  cleanliness: number;
-  traits: string[];
-  backstory: string;
+export type BackendGenerationInput = {
+  provider: "veo" | "sora" | "kling";
+  prompt: string;
+  negativePrompt: string | null;
+  referenceImages: BackendReferenceImage[] | null;
+  inputImage: BackendReferenceImage | null;
+};
+
+export type BackendSegment = {
+  sceneDescription: string;
+  duration: number;
+  generationInputs: BackendGenerationInput[];
+  selectedVideoUrl: string | null;
+  videoVariants: string[];
+  selectedVariantIndex: number | null;
+};
+
+export type BackendStoryboard = {
+  segments: BackendSegment[];
+};
+
+export type ProjectStatePayload = {
+  threadId?: string;
+  title: string;
+  description: string;
+  aspectRatio: string;
+  totalDuration: number;
+  referenceVideoUrl: string | null;
+  referenceImages: BackendReferenceImage[];
+  storyboard: BackendStoryboard;
+  storyboardApproved: boolean;
+  finalVideoUrl: string | null;
+  thumbnailUrl: string | null;
+  bannerUrl: string | null;
+  marketingCopy: string | null;
   updatedAt: string;
 };
 
-export const DEFAULT_CAT_STATE: CatStatePayload = {
-  threadId: null,
-  name: "Unnamed Cat",
-  colorPattern: "orange_tabby",
-  energy: 10,
-  happiness: 10,
-  cleanliness: 10,
-  traits: [],
-  backstory: "",
-  updatedAt: new Date().toISOString(),
-};
+// ============================================
+// Transformer: Backend -> Frontend
+// ============================================
+
+/**
+ * Convert backend segment to frontend clip format.
+ * Uses the first generationInput as the primary clip configuration.
+ */
+export function transformSegmentToClip(segment: BackendSegment): Clip {
+  // Use the first generationInput as the primary configuration
+  const primaryInput = segment.generationInputs[0];
+
+  if (!primaryInput) {
+    // Fallback if no generation inputs
+    return {
+      provider: "veo",
+      scene_description: segment.sceneDescription,
+      prompt: "",
+      duration: segment.duration,
+    };
+  }
+
+  const baseClip: BaseClip = {
+    scene_description: segment.sceneDescription,
+    prompt: primaryInput.prompt,
+    duration: segment.duration,
+    input_image: primaryInput.inputImage
+      ? { url: primaryInput.inputImage.url }
+      : undefined,
+  };
+
+  if (primaryInput.provider === "sora") {
+    return {
+      ...baseClip,
+      provider: "sora",
+    } as SoraClip;
+  }
+
+  // Default to VeoClip for "veo" and "kling" (kling uses similar format)
+  return {
+    ...baseClip,
+    provider: "veo",
+    negative_prompt: primaryInput.negativePrompt ?? undefined,
+    reference_images: primaryInput.referenceImages?.map((img) => ({
+      url: img.url,
+    })),
+  } as VeoClip;
+}
+
+/**
+ * Convert backend project state to frontend storyboard format.
+ */
+export function transformProjectStateToStoryboard(
+  state: ProjectStatePayload
+): Storyboard {
+  return {
+    description: state.description,
+    total_duration: state.totalDuration,
+    clips: state.storyboard.segments.map(transformSegmentToClip),
+  };
+}
 
 // ============================================
 // i18n Types (re-exported from lib/i18n)

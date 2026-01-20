@@ -31,7 +31,8 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
   const i18n = t(language);
 
   const hasClips = storyboard && storyboard.clips.length > 0;
-  const canGenerate = true;
+  const isWaitingForInput = storyboard && storyboard.clips.length === 0;
+  const canGenerate = hasClips;
 
   const handleGenerateVideos = async () => {
     setIsGeneratingVideos(true);
@@ -56,12 +57,14 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
             <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
               {i18n.videoDescription}
             </span>
-            <div className="flex items-center gap-1.5 rounded-full bg-slate-200/80 px-2.5 py-0.5 dark:bg-slate-700">
-              <ClockIcon className="h-3 w-3 text-slate-500 dark:text-slate-400" />
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                {storyboard.clips.reduce((sum, clip) => sum + clip.duration, 0)}{i18n.seconds}
-              </span>
-            </div>
+            {hasClips && (
+              <div className="flex items-center gap-1.5 rounded-full bg-slate-200/80 px-2.5 py-0.5 dark:bg-slate-700">
+                <ClockIcon className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                  {storyboard.clips.reduce((sum, clip) => sum + clip.duration, 0)}{i18n.seconds}
+                </span>
+              </div>
+            )}
           </div>
           <textarea
             value={storyboard.description}
@@ -90,6 +93,12 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
               />
             ))}
           </div>
+        ) : isWaitingForInput ? (
+          <EmptyState
+            icon={<ChatBubbleIcon />}
+            title={i18n.aiAsking}
+            description={i18n.checkChat}
+          />
         ) : (
           <EmptyState
             icon={<StoryboardIcon />}
@@ -698,6 +707,24 @@ function StoryboardIcon() {
         strokeLinejoin="round"
         strokeWidth={1.5}
         d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
+      />
+    </svg>
+  );
+}
+
+function ChatBubbleIcon() {
+  return (
+    <svg
+      className="h-8 w-8 text-slate-400 dark:text-slate-500"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
       />
     </svg>
   );

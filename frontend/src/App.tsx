@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { useRef } from "react";
 
 import { ChatKitPanel } from "./components/ChatKitPanel";
-import type { ChatKit } from "./components/ChatKitPanel";
+import type { ChatKitInstance } from "./components/ChatKitPanel";
 import { FinalVideoPanel } from "./components/FinalVideoPanel";
 import { StoryboardPanel } from "./components/StoryboardPanel";
 import { ClipSelectionPanel } from "./components/ClipSelectionPanel";
@@ -12,7 +12,7 @@ import { useAppStore } from "./store/useAppStore";
 import { t } from "./lib/i18n";
 
 export default function App() {
-  const chatkitRef = useRef<ChatKit | null>(null);
+  const chatkitRef = useRef<ChatKitInstance | null>(null);
 
   const scheme = useAppStore((state) => state.scheme);
   const language = useAppStore((state) => state.language);

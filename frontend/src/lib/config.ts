@@ -1,5 +1,4 @@
 import { StartScreenPrompt } from "@openai/chatkit";
-import { DEFAULT_CAT_STATE } from "./cat";
 
 export const CHATKIT_API_URL =
   import.meta.env.VITE_CHATKIT_API_URL ?? "/chatkit";
@@ -12,9 +11,6 @@ export const CHATKIT_API_URL =
  */
 export const CHATKIT_API_DOMAIN_KEY =
   import.meta.env.VITE_CHATKIT_API_DOMAIN_KEY ?? "domain_pk_localhost_dev";
-
-export const CAT_STATE_API_URL =
-  import.meta.env.VITE_CAT_STATE_API_URL ?? "/cats";
 
 export const THEME_STORAGE_KEY = "soraad-theme";
 export const LANG_STORAGE_KEY = "soraad-lang";
@@ -82,6 +78,6 @@ export const STARTER_PROMPTS: Record<Language, StartScreenPrompt[]> = {
   ],
 };
 
-export const getPlaceholder = (lang: Language, _catName: string | null) => {
+export const getPlaceholder = (lang: Language) => {
   return lang === "ko" ? "광고 제작 요청을 입력하세요" : "Enter your ad request";
 };
