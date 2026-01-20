@@ -9,11 +9,26 @@
 Storyboard
 ├── description      (vivid description including appeal type, considerations)
 ├── total_duration   (total video length in seconds)
-└── clips[]          (array of ClipCards)
-    └── ClipCard
+└── clips[]          (oneOf: SoraClip | VeoClip)
+    ├── SoraClip
+    │   ├── scene_description  (human-readable, not for AI)
+    │   ├── provider: "sora"
+    │   ├── model: sora-2 | sora-2-pro
+    │   ├── prompt
+    │   ├── duration: 4 | 8 | 12
+    │   └── input_image
+    │
+    └── VeoClip
         ├── scene_description  (human-readable, not for AI)
-        ├── provider, prompt, duration, etc. (video gen params)
-        └── input_image, reference_images, etc.
+        ├── provider: "veo"
+        ├── model: veo-3.1-*
+        ├── prompt
+        ├── duration: 4 | 6 | 8
+        ├── input_image
+        ├── negative_prompt
+        ├── last_frame
+        ├── reference_images
+        └── num_outputs
 ```
 
 ## Hardcoded Defaults
@@ -23,6 +38,7 @@ Storyboard
 | `aspect_ratio` | 16:9 | Landscape format |
 | `resolution` | 720p | Standard quality |
 | `generate_audio` | true | Veo only, always enabled |
+| `person_generation` | allow_all | Veo only, allow all people generation |
 
 ## Schema Definition
 
@@ -46,15 +62,20 @@ Storyboard
     },
     "clips": {
       "type": "array",
-      "items": { "$ref": "#/$defs/ClipCard" },
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/SoraClip" },
+          { "$ref": "#/$defs/VeoClip" }
+        ]
+      },
       "minItems": 1,
       "description": "Ordered list of video clips that compose the final video"
     }
   },
   "$defs": {
-    "ClipCard": {
+    "SoraClip": {
       "type": "object",
-      "description": "Individual video segment with generation parameters",
+      "description": "Video segment for Sora video generation API",
       "required": ["scene_description", "provider", "prompt"],
       "properties": {
         "scene_description": {
@@ -62,17 +83,13 @@ Storyboard
           "description": "Human-readable scene description for UI display (not sent to video AI models)"
         },
         "provider": {
-          "type": "string",
-          "enum": ["sora", "veo"],
-          "description": "Target video generation API"
+          "const": "sora",
+          "description": "Sora video generation API"
         },
         "model": {
           "type": "string",
-          "description": "Model identifier (provider-specific)",
-          "oneOf": [
-            { "enum": ["sora-2", "sora-2-pro"] },
-            { "enum": ["veo-3.1-generate-001", "veo-3.1-fast-generate-001", "veo-3.1-generate-preview", "veo-3.1-fast-generate-preview"] }
-          ]
+          "enum": ["sora-2", "sora-2-pro"],
+          "description": "Sora model identifier"
         },
         "prompt": {
           "type": "string",
@@ -81,9 +98,44 @@ Storyboard
         },
         "duration": {
           "type": "integer",
-          "enum": [4, 8],
+          "enum": [4, 8, 12],
           "default": 4,
-          "description": "Duration in seconds (4 or 8 work on both APIs)"
+          "description": "Duration in seconds"
+        },
+        "input_image": {
+          "$ref": "#/$defs/ImageInput",
+          "description": "First frame / starting image"
+        }
+      }
+    },
+    "VeoClip": {
+      "type": "object",
+      "description": "Video segment for Veo video generation API",
+      "required": ["scene_description", "provider", "prompt"],
+      "properties": {
+        "scene_description": {
+          "type": "string",
+          "description": "Human-readable scene description for UI display (not sent to video AI models)"
+        },
+        "provider": {
+          "const": "veo",
+          "description": "Veo video generation API"
+        },
+        "model": {
+          "type": "string",
+          "enum": ["veo-3.1-generate-001", "veo-3.1-fast-generate-001", "veo-3.1-generate-preview", "veo-3.1-fast-generate-preview"],
+          "description": "Veo model identifier"
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 4096,
+          "description": "Text description of video content for AI model"
+        },
+        "duration": {
+          "type": "integer",
+          "enum": [4, 6, 8],
+          "default": 8,
+          "description": "Duration in seconds"
         },
         "input_image": {
           "$ref": "#/$defs/ImageInput",
@@ -91,30 +143,24 @@ Storyboard
         },
         "negative_prompt": {
           "type": "string",
-          "description": "What NOT to include (Veo only)"
+          "description": "What NOT to include"
         },
         "last_frame": {
           "$ref": "#/$defs/ImageInput",
-          "description": "Last frame for interpolation (Veo only)"
+          "description": "Last frame for interpolation"
         },
         "reference_images": {
           "type": "array",
           "items": { "$ref": "#/$defs/ImageInput" },
           "maxItems": 3,
-          "description": "Subject/character reference images (Veo only)"
+          "description": "Subject/character reference images"
         },
         "num_outputs": {
           "type": "integer",
           "minimum": 1,
           "maximum": 4,
           "default": 1,
-          "description": "Number of videos to generate per clip (Veo only)"
-        },
-        "person_generation": {
-          "type": "string",
-          "enum": ["allow_adult", "dont_allow", "allow_all"],
-          "default": "allow_adult",
-          "description": "People/face generation control (Veo only)"
+          "description": "Number of videos to generate per clip"
         }
       }
     },
@@ -192,20 +238,30 @@ Storyboard
 |-----------|----------|-------------|
 | `description` | Yes | Vivid description of entire video concept |
 | `total_duration` | Yes | Total length in seconds (1-60) |
-| `clips` | Yes | Array of ClipCard objects |
+| `clips` | Yes | Array of SoraClip or VeoClip objects |
 
-### ClipCard (Per Segment)
+### SoraClip
 
-| Parameter | Required | Provider | Description |
-|-----------|----------|----------|-------------|
-| `scene_description` | Yes | N/A | Human-readable scene description (UI only) |
-| `provider` | Yes | Both | `sora` or `veo` |
-| `prompt` | Yes | Both | Text description for AI model |
-| `model` | No | Both | Model identifier |
-| `duration` | No | Both | 4 or 8 seconds (default: 4) |
-| `input_image` | No | Both | First frame image |
-| `negative_prompt` | No | Veo | What NOT to include |
-| `last_frame` | No | Veo | Last frame for interpolation |
-| `reference_images` | No | Veo | Up to 3 subject references |
-| `num_outputs` | No | Veo | 1-4 videos (default: 1) |
-| `person_generation` | No | Veo | People generation control |
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `scene_description` | Yes | Human-readable scene description (UI only) |
+| `provider` | Yes | Must be `"sora"` |
+| `prompt` | Yes | Text description for AI model |
+| `model` | No | `sora-2` or `sora-2-pro` |
+| `duration` | No | 4, 8, or 12 seconds (default: 4) |
+| `input_image` | No | First frame image |
+
+### VeoClip
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `scene_description` | Yes | Human-readable scene description (UI only) |
+| `provider` | Yes | Must be `"veo"` |
+| `prompt` | Yes | Text description for AI model |
+| `model` | No | `veo-3.1-generate-001`, `veo-3.1-fast-generate-001`, etc. |
+| `duration` | No | 4, 6, or 8 seconds (default: 8) |
+| `input_image` | No | First frame image |
+| `negative_prompt` | No | What NOT to include |
+| `last_frame` | No | Last frame for interpolation |
+| `reference_images` | No | Up to 3 subject reference images |
+| `num_outputs` | No | 1-4 videos (default: 1) |
