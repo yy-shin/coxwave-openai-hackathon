@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.5.24
+    hooks:
+      - id: uv-lock
+
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: uv run pyright
+        language: system
+        types: [python]
+        pass_filenames: false
