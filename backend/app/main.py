@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 from chatkit.server import StreamingResult
@@ -10,6 +11,11 @@ from fastapi.responses import Response, StreamingResponse
 from starlette.responses import JSONResponse
 
 from .server import VideoAssistantServer, create_chatkit_server
+from .tools.video_generations import (
+    VideoGenerations,
+    generate_videos_from_project,
+)
+from .video_project_state import VideoProjectState
 
 app = FastAPI(title="OvenAI Video Generation API")
 
@@ -57,3 +63,29 @@ async def read_project_state(
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@app.post("/generate")
+async def submit_generation(state: VideoProjectState) -> VideoGenerations:
+    """Submit a video generation request.
+
+    Receives a VideoProjectState with a storyboard containing segments,
+    and initiates video generation for each segment's generation inputs.
+
+    Returns VideoGenerations with video IDs and initial status.
+    """
+    project_id = str(uuid.uuid4())
+    return await generate_videos_from_project(project_id, state)
+
+
+@app.post("/generate/status")
+async def poll_generation_status(generations: VideoGenerations) -> VideoGenerations:
+    """Poll for updated status of video generations.
+
+    Receives a VideoGenerations object containing video IDs and providers,
+    and returns an updated VideoGenerations with latest status/progress/URLs.
+
+    Note: This is currently a stub that returns the input unchanged.
+    """
+    # XXX: stub for now
+    return generations
