@@ -172,6 +172,8 @@ async def generate_videos_from_project(
     """
     Generate videos for all segments in a VideoProjectState.
 
+    All video generation requests are made concurrently for maximum parallelism.
+
     Args:
         project_id: Unique identifier for this project
         state: The VideoProjectState containing storyboard
@@ -186,33 +188,58 @@ async def generate_videos_from_project(
 
     created_at = datetime.now(UTC).isoformat()
 
-    # Build segments list
-    segments: list[SegmentGeneration] = []
+    # Collect all inputs from all segments for concurrent generation
+    # Each item: (segment_index, input_index, provider_input, config)
+    all_inputs: list[tuple[int, int, VideoGenerationInput, GenerationConfig]] = []
+
+    aspect_ratio = (
+        state.aspect_ratio if state.aspect_ratio in ("16:9", "9:16") else "9:16"
+    )
 
     for segment_index, segment in enumerate(state.storyboard.segments):
-        # Build GenerationConfig from segment duration and project aspect ratio
         duration = _get_validated_duration(segment.duration)
-        aspect_ratio = (
-            state.aspect_ratio if state.aspect_ratio in ("16:9", "9:16") else "9:16"
-        )
         config = GenerationConfig(
             duration=duration,
             aspect_ratio=aspect_ratio,  # type: ignore
         )
 
-        # Convert all generation inputs and call API
-        inputs_with_indices: list[tuple[VideoGenerationInput, int]] = []
         for input_index, gen_input in enumerate(segment.generation_inputs):
             provider_input = _convert_generation_input_to_provider_input(gen_input)
-            inputs_with_indices.append((provider_input, input_index))
+            all_inputs.append((segment_index, input_index, provider_input, config))
 
-        # Generate videos in batch
-        if inputs_with_indices:
-            results = await service.generate_batch(inputs_with_indices, config)
-        else:
-            results = []
+    # Generate ALL videos concurrently
+    async def generate_one(
+        segment_idx: int, input_idx: int, provider_input: VideoGenerationInput, config: GenerationConfig
+    ) -> tuple[int, GenerationResult]:
+        """Generate a single video and return with segment index."""
+        video = await service.generate(provider_input, config)
+        result = GenerationResult(
+            input_index=input_idx,
+            provider=provider_input.provider,  # type: ignore
+            video=video,
+        )
+        return segment_idx, result
 
-        # Derive segment status
+    # Run all generations concurrently
+    tasks = [
+        generate_one(seg_idx, inp_idx, provider_input, config)
+        for seg_idx, inp_idx, provider_input, config in all_inputs
+    ]
+    all_results = await asyncio.gather(*tasks)
+
+    # Organize results by segment
+    segment_results: dict[int, list[GenerationResult]] = {}
+    for segment_idx, result in all_results:
+        if segment_idx not in segment_results:
+            segment_results[segment_idx] = []
+        segment_results[segment_idx].append(result)
+
+    # Build segments list
+    segments: list[SegmentGeneration] = []
+    for segment_index, segment in enumerate(state.storyboard.segments):
+        results = segment_results.get(segment_index, [])
+        # Sort by input_index to maintain order
+        results.sort(key=lambda r: r.input_index)
         segment_status = _derive_segment_status(results)
 
         segments.append(

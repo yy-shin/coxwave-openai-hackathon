@@ -705,18 +705,14 @@ def _create_test_video_project_state(image_paths: list[str]) -> VideoProjectStat
     Args:
         image_paths: List of local file paths to test images (9:16 aspect ratio).
 
-    Uses varied configurations across both Veo and Sora providers:
+    Uses Sora provider with varied configurations:
     - input_image: first-frame image for Sora (local file paths)
-    - negative_prompt: what to avoid in generation (Veo only)
 
-    Note: Veo requires GCS URIs (gs://...) or base64 for images, so we only
-    use text prompts and negative_prompt for Veo in this test.
-
-    Distribution: 18 Sora + 3 Veo to stay within Veo rate limits.
-    Veo requests are placed in segments 0, 3, and 6 to spread them out.
+    Note: Currently using Sora only due to Veo quota limits.
+    When Veo quota is available, can add Veo generations with negative_prompt.
     """
     segments = [
-        # Segment 0: Sora basic | Sora + input_image | Veo + negative_prompt
+        # Segment 0: Sora basic | Sora + input_image | Sora basic
         Segment(
             scene_description="Opening: Character emerges from portal",
             duration=8.0,
@@ -731,9 +727,8 @@ def _create_test_video_project_state(image_paths: list[str]) -> VideoProjectStat
                     input_image=ImageInput(file_path=image_paths[0]),
                 ),
                 GenerationInput(
-                    provider="veo",
-                    prompt="A mystical character emerges from a glowing portal in a dark forest, cinematic lighting, smooth camera movement",
-                    negative_prompt="blurry, low quality, distorted, pixelated, artifacts",
+                    provider="sora",
+                    prompt="Magical portal opening in a mystical forest, ethereal glow, fantasy atmosphere",
                 ),
             ],
         ),
@@ -777,7 +772,7 @@ def _create_test_video_project_state(image_paths: list[str]) -> VideoProjectStat
                 ),
             ],
         ),
-        # Segment 3: Sora basic | Sora + input_image | Veo + negative_prompt
+        # Segment 3: Sora basic | Sora + input_image | Sora basic
         Segment(
             scene_description="Transformation: Character powers up",
             duration=8.0,
@@ -792,9 +787,8 @@ def _create_test_video_project_state(image_paths: list[str]) -> VideoProjectStat
                     input_image=ImageInput(file_path=image_paths[0]),
                 ),
                 GenerationInput(
-                    provider="veo",
-                    prompt="Character undergoes magical transformation with particle effects, bright aura, smooth transition",
-                    negative_prompt="jerky motion, low resolution, noise, grain",
+                    provider="sora",
+                    prompt="Power-up transformation sequence with glowing energy, dynamic effects",
                 ),
             ],
         ),
@@ -838,7 +832,7 @@ def _create_test_video_project_state(image_paths: list[str]) -> VideoProjectStat
                 ),
             ],
         ),
-        # Segment 6: Sora basic | Sora + input_image | Veo + negative_prompt
+        # Segment 6: Sora basic | Sora + input_image | Sora basic
         Segment(
             scene_description="Finale: Logo reveal with special effects",
             duration=8.0,
@@ -853,9 +847,8 @@ def _create_test_video_project_state(image_paths: list[str]) -> VideoProjectStat
                     input_image=ImageInput(file_path=image_paths[0]),
                 ),
                 GenerationInput(
-                    provider="veo",
-                    prompt="Dramatic logo reveal with sparkling particles and light rays, professional quality, brand focused",
-                    negative_prompt="amateur, cheap, pixelated, blurry text",
+                    provider="sora",
+                    prompt="Brand logo animation with glowing effects and particle systems",
                 ),
             ],
         ),
@@ -892,13 +885,18 @@ class TestRealVideoGenerationIntegration:
         4. Includes input_image (Sora) and negative_prompt (Veo) fields
         5. Calls real APIs to generate videos
         6. Polls until all complete (up to ~20 minutes)
-        7. Downloads all videos to disk
+        7. Downloads all videos to project's data/ directory
         8. Verifies files exist with non-zero size
         """
+        # Use the project root's data directory for video output
+        project_root = Path(__file__).parent.parent.parent  # Goes to coxwave-openai-hackathon/
+        output_dir = project_root
+        print(f"\n=== Output directory: {output_dir} ===", flush=True)
+
         # Arrange: Download test images to local temp files
-        print("\n=== Downloading test images ===")
+        print("=== Downloading test images ===", flush=True)
         image_paths = await _download_test_images(tmp_path)
-        print(f"Downloaded {len(image_paths)} test images")
+        print(f"Downloaded {len(image_paths)} test images", flush=True)
 
         # Create test project state with local image paths
         state = _create_test_video_project_state(image_paths)
@@ -911,7 +909,7 @@ class TestRealVideoGenerationIntegration:
         assert total_inputs == 21, f"Expected 21 inputs, got {total_inputs}"
 
         # Act: Generate videos (real API calls)
-        print("\n=== Starting video generation for 21 videos ===")
+        print("\n=== Starting video generation for 21 videos ===", flush=True)
         video_generations = await generate_videos_from_project(
             project_id=project_id,
             state=state,
@@ -932,12 +930,12 @@ class TestRealVideoGenerationIntegration:
         poll_interval = 10  # seconds
         polls = 0
 
-        print(f"Initial status: {video_generations.status}")
+        print(f"Initial status: {video_generations.status}", flush=True)
 
         while video_generations.status != "completed" and polls < max_polls:
             await asyncio.sleep(poll_interval)
             video_generations = await poll_and_save_video_generations(
-                video_generations, tmp_path
+                video_generations, output_dir
             )
             polls += 1
 
@@ -963,7 +961,8 @@ class TestRealVideoGenerationIntegration:
 
             print(
                 f"Poll {polls}: {completed_count}/21 completed, "
-                f"{in_progress_count} in progress, {failed_count} failed"
+                f"{in_progress_count} in progress, {failed_count} failed",
+                flush=True,
             )
 
             # Early exit if all have terminal status
@@ -971,7 +970,7 @@ class TestRealVideoGenerationIntegration:
                 break
 
         # Assert: Final status checks
-        print(f"\n=== Final status: {video_generations.status} ===")
+        print(f"\n=== Final status: {video_generations.status} ===", flush=True)
 
         # Count final results
         final_completed = 0
@@ -982,16 +981,18 @@ class TestRealVideoGenerationIntegration:
                     final_completed += 1
                     print(
                         f"  Segment {seg_idx}, Input {res.input_index} "
-                        f"({res.provider}): completed - {res.video.id}"
+                        f"({res.provider}): completed - {res.video.id}",
+                        flush=True,
                     )
                 elif res.video.status == "failed":
                     final_failed += 1
                     print(
                         f"  Segment {seg_idx}, Input {res.input_index} "
-                        f"({res.provider}): FAILED - {res.video.error}"
+                        f"({res.provider}): FAILED - {res.video.error}",
+                        flush=True,
                     )
 
-        print(f"\nTotal: {final_completed} completed, {final_failed} failed")
+        print(f"\nTotal: {final_completed} completed, {final_failed} failed", flush=True)
 
         # Verify overall completion (allow some failures but most should complete)
         assert video_generations.status == "completed", (
@@ -1011,7 +1012,7 @@ class TestRealVideoGenerationIntegration:
             for result in segment.generation_results:
                 if result.video.status == "completed":
                     local_path = get_video_local_path(
-                        tmp_path,
+                        output_dir,
                         project_id,
                         segment.segment_index,
                         result.input_index,
@@ -1024,7 +1025,7 @@ class TestRealVideoGenerationIntegration:
                     assert file_size > 0, (
                         f"Video file is empty: {local_path} (size: {file_size})"
                     )
-                    print(f"  ✓ {local_path.name}: {file_size / 1024 / 1024:.2f} MB")
+                    print(f"  ✓ {local_path.name}: {file_size / 1024 / 1024:.2f} MB", flush=True)
 
-        print(f"\n=== Successfully downloaded {len(downloaded_files)} videos ===")
+        print(f"\n=== Successfully downloaded {len(downloaded_files)} videos ===", flush=True)
         assert len(downloaded_files) == 21
