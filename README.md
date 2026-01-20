@@ -76,7 +76,7 @@ cp .env.sample .env
 # OPENAI_API_KEY, GOOGLE_API_KEY 입력
 
 # 실행
-npm run
+npm run start
 ```
 
 ## 향후 계획
