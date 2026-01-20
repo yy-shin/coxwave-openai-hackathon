@@ -25,11 +25,19 @@ from .video_project_store import VideoProjectStore
 class GenerationInputData(BaseModel):
     """Input model for a generation provider configuration."""
 
-    provider: str = Field(description="Video generation provider ('veo', 'sora', 'kling')")
+    provider: str = Field(
+        description="Video generation provider ('veo', 'sora', 'kling')"
+    )
     prompt: str = Field(description="The prompt for video generation")
-    negative_prompt: str | None = Field(default=None, description="Negative prompt to avoid certain elements")
-    reference_image_urls: List[str] = Field(default_factory=list, description="List of reference image URLs")
-    input_image_url: str | None = Field(default=None, description="Input image URL for image-to-video")
+    negative_prompt: str | None = Field(
+        default=None, description="Negative prompt to avoid certain elements"
+    )
+    reference_image_urls: List[str] = Field(
+        default_factory=list, description="List of reference image URLs"
+    )
+    input_image_url: str | None = Field(
+        default=None, description="Input image URL for image-to-video"
+    )
 
 
 class SegmentInput(BaseModel):
@@ -77,6 +85,7 @@ high-quality marketing videos for games and products.
 - `get_project_status`: Check current project state before deciding what to do
 - `set_project_details`: Set project title, aspect ratio, duration, and description
 - `create_storyboard`: Create and display storyboard with segments
+- `edit_storyboard_segment`: Edit a single segment by index (0-based) when user requests changes
 - `start_video_generation`: Start video generation after storyboard approval
 
 ## Important Notes
@@ -271,6 +280,70 @@ async def create_storyboard(
 
 @function_tool(
     description_override=(
+        "Edit a single segment in the storyboard by index.\n"
+        "- `segment_index`: The 0-based index of the segment to edit\n"
+        "- `segment`: The updated segment with scene_description, duration, and generation_inputs"
+    )
+)
+async def edit_storyboard_segment(
+    ctx: RunContextWrapper[VideoAgentContext],
+    segment_index: int,
+    segment: SegmentInput,
+):
+    """Edit a single segment in the storyboard."""
+    logger.info("[TOOL CALL] edit_storyboard_segment: index=%d", segment_index)
+
+    state = await _get_state(ctx)
+
+    # Validate segment index
+    if segment_index < 0 or segment_index >= len(state.storyboard.segments):
+        return {
+            "status": "error",
+            "message": f"Invalid segment index {segment_index}. Storyboard has {len(state.storyboard.segments)} segments (0-{len(state.storyboard.segments) - 1}).",
+        }
+
+    from .video_project_state import ReferenceImage
+
+    # Convert SegmentInput to Segment
+    updated_segment = Segment(
+        scene_description=segment.scene_description,
+        duration=segment.duration,
+        generation_inputs=[
+            GenerationInput(
+                provider=gi.provider,  # type: ignore[arg-type]
+                prompt=gi.prompt,
+                negative_prompt=gi.negative_prompt,
+                reference_images=(
+                    [ReferenceImage(url=url) for url in gi.reference_image_urls]
+                    if gi.reference_image_urls
+                    else None
+                ),
+                input_image=(
+                    ReferenceImage(url=gi.input_image_url)
+                    if gi.input_image_url
+                    else None
+                ),
+            )
+            for gi in segment.generation_inputs
+        ],
+    )
+
+    def mutate(state: VideoProjectState) -> None:
+        state.update_segment(segment_index, updated_segment)
+
+    state = await _update_state(ctx, mutate)
+    await _add_hidden_context(ctx, f"<SEGMENT_EDITED>{segment_index}</SEGMENT_EDITED>")
+    await _sync_status(ctx, state, f"Segment {segment_index + 1} updated")
+
+    return {
+        "status": "success",
+        "segment_index": segment_index,
+        "message": f"Segment {segment_index + 1} has been updated.",
+    }
+
+
+@function_tool(
+    description_override=(
         "Approve the storyboard and start video generation.\n"
         "Call this after the user confirms they're happy with the storyboard."
     )
@@ -299,43 +372,6 @@ async def start_video_generation(
     }
 
 
-@function_tool(
-    description_override=(
-        "Select a video variant for a segment.\n"
-        "- `segment_index`: The segment index (0-based)\n"
-        "- `variant_index`: The index of the selected variant (0-based)"
-    )
-)
-async def select_video_variant(
-    ctx: RunContextWrapper[VideoAgentContext],
-    segment_index: int,
-    variant_index: int,
-):
-    """Record the user's video variant selection."""
-    logger.info(
-        "[TOOL CALL] select_video_variant: segment=%d, index=%d",
-        segment_index,
-        variant_index,
-    )
-
-    def mutate(state: VideoProjectState) -> None:
-        state.select_variant(segment_index, variant_index)
-
-    state = await _update_state(ctx, mutate)
-    await _add_hidden_context(
-        ctx, f"<SEGMENT_SELECTED>{segment_index}:{variant_index}</SEGMENT_SELECTED>"
-    )
-    await _sync_status(
-        ctx, state, f"Selected variant {variant_index + 1} for segment {segment_index + 1}"
-    )
-
-    return {
-        "status": "selected",
-        "segment_index": segment_index,
-        "variant_index": variant_index,
-    }
-
-
 video_agent = Agent[VideoAgentContext](
     model=MODEL,
     model_settings=ModelSettings(reasoning=Reasoning(effort="high", summary="auto")),
@@ -345,8 +381,8 @@ video_agent = Agent[VideoAgentContext](
         get_project_status,
         set_project_details,
         create_storyboard,
+        edit_storyboard_segment,
         start_video_generation,
-        select_video_variant,
     ],
     # Stop inference after tool calls that produce widgets or require user input
     tool_use_behavior=StopAtTools(

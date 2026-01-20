@@ -90,6 +90,17 @@ class VideoProjectState(BaseModel):
                 seg.selected_video_url = seg.video_variants[variant_index]
         self.touch()
 
+    def update_segment(self, segment_index: int, segment: Segment) -> bool:
+        """Update a single segment in the storyboard by index.
+
+        Returns True if the segment was updated, False if index is out of range.
+        """
+        if 0 <= segment_index < len(self.storyboard.segments):
+            self.storyboard.segments[segment_index] = segment
+            self.touch()
+            return True
+        return False
+
     def set_final_output(
         self,
         video_url: str,

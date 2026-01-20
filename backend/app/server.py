@@ -57,17 +57,23 @@ class VideoAssistantServer(ChatKitServer[dict[str, Any]]):
         logger.info("[ACTION] type=%s", action.type)
 
         if action.type == "video.approve_storyboard":
-            async for event in self._handle_approve_storyboard(thread, action.payload, sender, context):
+            async for event in self._handle_approve_storyboard(
+                thread, action.payload, sender, context
+            ):
                 yield event
             return
 
         if action.type == "video.select_segment":
-            async for event in self._handle_select_segment(thread, action.payload, sender, context):
+            async for event in self._handle_select_segment(
+                thread, action.payload, sender, context
+            ):
                 yield event
             return
 
         if action.type == "video.regenerate_segment":
-            async for event in self._handle_regenerate_segment(thread, action.payload, sender, context):
+            async for event in self._handle_regenerate_segment(
+                thread, action.payload, sender, context
+            ):
                 yield event
             return
 
@@ -118,7 +124,9 @@ class VideoAssistantServer(ChatKitServer[dict[str, Any]]):
         async for event in stream_agent_response(agent_context, result):
             yield event
 
-    def get_stream_options(self, thread: ThreadMetadata, context: dict[str, Any]) -> StreamOptions:
+    def get_stream_options(
+        self, thread: ThreadMetadata, context: dict[str, Any]
+    ) -> StreamOptions:
         """Configure streaming options."""
         # Don't allow stream cancellation as video operations may update state
         return StreamOptions(allow_cancel=False)
@@ -168,48 +176,6 @@ class VideoAssistantServer(ChatKitServer[dict[str, Any]]):
             content=[
                 AssistantMessageContent(
                     text="Storyboard approved! Starting video generation..."
-                )
-            ],
-        )
-        yield ThreadItemDoneEvent(item=message_item)
-
-    async def _handle_select_segment(
-        self,
-        thread: ThreadMetadata,
-        payload: dict[str, Any],
-        sender: WidgetItem | None,
-        context: dict[str, Any],
-    ) -> AsyncIterator[ThreadStreamEvent]:
-        """Handle video segment selection action."""
-        segment_id = payload.get("segment_id")
-        variant_index = payload.get("variant_index", 0)
-        logger.info("[ACTION] select_segment: %s -> %d", segment_id, variant_index)
-
-        def mutate(s):
-            s.select_variant(segment_id, variant_index)
-
-        state = await self.project_store.mutate(thread.id, mutate)
-
-        # Add hidden context
-        await self.store.add_thread_item(
-            thread.id,
-            HiddenContextItem(
-                id=self.store.generate_item_id("message", thread, context),
-                thread_id=thread.id,
-                created_at=datetime.now(),
-                content=f"<SEGMENT_SELECTED>{segment_id}:{variant_index}</SEGMENT_SELECTED>",
-            ),
-            context=context,
-        )
-
-        # Send confirmation message
-        message_item = AssistantMessageItem(
-            id=self.store.generate_item_id("message", thread, context),
-            thread_id=thread.id,
-            created_at=datetime.now(),
-            content=[
-                AssistantMessageContent(
-                    text=f"Selected variant {variant_index + 1} for segment {segment_id}."
                 )
             ],
         )
