@@ -4,7 +4,7 @@
 
 ## 데모
 
-<video src="docs/demo.mp4" controls></video>
+[데모 영상 보기](docs/demo.mp4)
 
 ## 문제 정의
 
