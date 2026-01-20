@@ -166,6 +166,73 @@ export function transformProjectStateToStoryboard(
 }
 
 // ============================================
+// Video Generation API Types (from backend)
+// ============================================
+
+export type GeneratedVideo = {
+  id: string;
+  status: "queued" | "in_progress" | "completed" | "failed";
+  progress?: number;
+  video_url?: string;
+  thumbnail_url?: string;
+  error?: string;
+};
+
+export type GenerationResult = {
+  input_index: number;
+  provider: "sora" | "veo";
+  video: GeneratedVideo;
+};
+
+export type SegmentGeneration = {
+  segment_index: number;
+  scene_description: string | null;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  generation_results: GenerationResult[];
+};
+
+export type VideoGenerations = {
+  project_id: string;
+  created_at: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  segments: SegmentGeneration[];
+};
+
+// ============================================
+// Backend VideoProjectState (for POST /generate)
+// ============================================
+
+export type BackendGenerationInputForPost = {
+  provider: "veo" | "sora";
+  prompt: string;
+  negative_prompt?: string | null;
+  reference_images?: { url: string }[] | null;
+  input_image?: { url: string } | null;
+};
+
+export type BackendSegmentForPost = {
+  scene_description: string;
+  duration: number;
+  generation_inputs: BackendGenerationInputForPost[];
+  selected_video_url?: string | null;
+  video_variants?: string[];
+  selected_variant_index?: number | null;
+};
+
+export type VideoProjectStateForPost = {
+  title?: string;
+  description?: string;
+  aspect_ratio?: string;
+  total_duration?: number;
+  reference_video_url?: string | null;
+  reference_images?: { url: string }[];
+  storyboard: {
+    segments: BackendSegmentForPost[];
+  };
+  storyboard_approved?: boolean;
+};
+
+// ============================================
 // i18n Types (re-exported from lib/i18n)
 // ============================================
 export type { Language, Translations } from "../lib/i18n";

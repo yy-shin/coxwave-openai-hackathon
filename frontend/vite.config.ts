@@ -14,6 +14,14 @@ export default defineConfig({
         target: backendTarget,
         changeOrigin: true,
       },
+      "/generate": {
+        target: backendTarget,
+        changeOrigin: true,
+      },
+      "/projects": {
+        target: backendTarget,
+        changeOrigin: true,
+      },
       "/cats": {
         target: backendTarget,
         changeOrigin: true,

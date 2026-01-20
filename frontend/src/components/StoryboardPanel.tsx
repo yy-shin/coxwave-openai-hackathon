@@ -1,9 +1,15 @@
 import clsx from "clsx";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 import { useAppStore } from "../store/useAppStore";
-import type { Clip, VeoClip, ImageInput, Translations } from "../types";
+import type { Clip, VeoClip, ImageInput, Translations, VideoGenerations } from "../types";
 import { t } from "../lib/i18n";
+import {
+  transformStoryboardToVideoProjectState,
+  submitVideoGeneration,
+  pollUntilComplete,
+  convertToVideoCandidates,
+} from "../lib/api";
 import {
   Button,
   PanelLayout,
@@ -24,22 +30,88 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
   const setIsGeneratingVideos = useAppStore(
     (state) => state.setIsGeneratingVideos
   );
+  const setVideoCandidates = useAppStore((state) => state.setVideoCandidates);
+  const setFlashMessage = useAppStore((state) => state.setFlashMessage);
   const updateStoryboardDescription = useAppStore(
     (state) => state.updateStoryboardDescription
   );
   const language = useAppStore((state) => state.language);
   const i18n = t(language);
 
+  const [generationProgress, setGenerationProgress] = useState<string | null>(null);
+
   const hasClips = storyboard && storyboard.clips.length > 0;
   const isWaitingForInput = storyboard && storyboard.clips.length === 0;
   const canGenerate = hasClips;
 
-  const handleGenerateVideos = async () => {
+  const handleGenerateVideos = useCallback(async () => {
+    console.log("[handleGenerateVideos] Start, storyboard:", storyboard);
+    if (!storyboard) {
+      console.log("[handleGenerateVideos] No storyboard, returning");
+      return;
+    }
+
     setIsGeneratingVideos(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsGeneratingVideos(false);
-    setRightPanel("video");
-  };
+    setGenerationProgress(i18n.submittingGeneration ?? "Submitting generation request...");
+
+    try {
+      // Transform storyboard to backend format
+      console.log("[handleGenerateVideos] Transforming storyboard...");
+      const videoProjectState = transformStoryboardToVideoProjectState(storyboard);
+      console.log("[handleGenerateVideos] VideoProjectState:", videoProjectState);
+
+      // Submit generation request
+      console.log("[handleGenerateVideos] Submitting generation request...");
+      const generations = await submitVideoGeneration(videoProjectState);
+      console.log("[handleGenerateVideos] Generation submitted:", generations);
+
+      setGenerationProgress(i18n.generatingVideosProgress ?? "Generating videos...");
+
+      // Poll until complete
+      console.log("[handleGenerateVideos] Starting polling...");
+      const completedGenerations = await pollUntilComplete(generations, {
+        pollInterval: 3000,
+        onProgress: (progress: VideoGenerations) => {
+          console.log("[handleGenerateVideos] Poll progress:", progress.status);
+          const completedCount = progress.segments.filter(
+            (s) => s.status === "completed"
+          ).length;
+          const totalCount = progress.segments.length;
+          setGenerationProgress(
+            `${i18n.generatingVideosProgress ?? "Generating videos..."} (${completedCount}/${totalCount})`
+          );
+        },
+      });
+      console.log("[handleGenerateVideos] Polling complete:", completedGenerations);
+
+      // Convert to video candidates and store
+      const candidates = convertToVideoCandidates(completedGenerations);
+      console.log("[handleGenerateVideos] Video candidates:", candidates);
+      setVideoCandidates(candidates);
+
+      // Check if any videos failed
+      const failedCount = completedGenerations.segments.filter(
+        (s) => s.status === "failed"
+      ).length;
+
+      if (failedCount > 0) {
+        setFlashMessage(
+          i18n.someVideosFailed?.replace("{count}", String(failedCount)) ??
+            `${failedCount} video(s) failed to generate`
+        );
+      }
+
+      setRightPanel("video");
+    } catch (error) {
+      console.error("[handleGenerateVideos] Error:", error);
+      setFlashMessage(
+        i18n.generationFailed ?? "Video generation failed. Please try again."
+      );
+    } finally {
+      setIsGeneratingVideos(false);
+      setGenerationProgress(null);
+    }
+  }, [storyboard, setIsGeneratingVideos, setVideoCandidates, setFlashMessage, setRightPanel, i18n]);
 
   return (
     <PanelLayout className={className}>
@@ -80,7 +152,7 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
         {isGeneratingVideos ? (
           <LoadingState
             title={i18n.generatingVideos}
-            description={i18n.generatingVideosDesc}
+            description={generationProgress ?? i18n.generatingVideosDesc}
           />
         ) : hasClips ? (
           <div className="space-y-2">
@@ -134,8 +206,14 @@ type CollapsibleClipCardProps = {
 function CollapsibleClipCard({ clip, index, i18n }: CollapsibleClipCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const updateClip = useAppStore((state) => state.updateClip);
+  const removeClip = useAppStore((state) => state.removeClip);
   const originalStoryboard = useAppStore((state) => state.originalStoryboard);
   const originalClip = originalStoryboard?.clips[index];
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeClip(index);
+  };
 
   const handleFieldChange = (field: keyof Clip, value: string | number) => {
     updateClip(index, { [field]: value } as Partial<Clip>);
@@ -176,6 +254,13 @@ function CollapsibleClipCard({ clip, index, i18n }: CollapsibleClipCardProps) {
               isExpanded && "rotate-180"
             )}
           />
+          <button
+            onClick={handleRemove}
+            className="ml-1 flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+            title="Remove clip"
+          >
+            <XIcon className="h-3.5 w-3.5" />
+          </button>
         </div>
       </button>
 

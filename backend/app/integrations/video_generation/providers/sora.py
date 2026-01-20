@@ -187,7 +187,7 @@ class SoraProvider(VideoProvider):
                     "model": input_data.model or "sora-2",
                     "prompt": input_data.prompt,
                     "size": size,
-                    "seconds": duration,
+                    "seconds": str(duration),
                 }
 
                 response = await client.post(

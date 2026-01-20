@@ -10,9 +10,15 @@ import {
   STARTER_PROMPTS,
   getPlaceholder,
 } from "../lib/config";
+import {
+  transformStoryboardToVideoProjectState,
+  submitVideoGeneration,
+  pollGenerationStatus,
+  convertToVideoCandidates,
+} from "../lib/api";
 import { EXAMPLE_STORYBOARD } from "../lib/exampleStoryboard";
 import { useAppStore } from "../store/useAppStore";
-import type { Storyboard, ProjectStatePayload } from "../types";
+import type { Storyboard, ProjectStatePayload, VideoGenerations } from "../types";
 import { transformProjectStateToStoryboard } from "../types";
 
 export type ChatKitInstance = ReturnType<typeof useChatKit>;
@@ -28,21 +34,76 @@ export function ChatKitPanel({ onChatKitReady, className }: ChatKitPanelProps) {
   // Store selectors
   const theme = useAppStore((s) => s.scheme);
   const language = useAppStore((s) => s.language);
+  const storyboard = useAppStore((s) => s.storyboard);
   const setFlashMessage = useAppStore((s) => s.setFlashMessage);
   const setThreadId = useAppStore((s) => s.setThreadId);
   const setStoryboard = useAppStore((s) => s.setStoryboard);
   const setRightPanel = useAppStore((s) => s.setRightPanel);
+  const setVideoCandidates = useAppStore((s) => s.setVideoCandidates);
+  const setIsGeneratingVideos = useAppStore((s) => s.setIsGeneratingVideos);
 
   // Helper to update storyboard and show panel
   const applyStoryboard = useCallback(
-    (storyboard: Storyboard, flash?: string) => {
-      setStoryboard(storyboard);
+    (sb: Storyboard, flash?: string) => {
+      setStoryboard(sb);
       setRightPanel("storyboard");
       if (flash) {
         setFlashMessage(flash);
       }
     },
     [setStoryboard, setRightPanel, setFlashMessage],
+  );
+
+  // Start video generation and poll for updates
+  const startVideoGeneration = useCallback(
+    async (sb: Storyboard) => {
+      if (!sb) return;
+
+      // 1. Switch to video panel and set generating state
+      setRightPanel("video");
+      setIsGeneratingVideos(true);
+
+      try {
+        // 2. Transform and submit generation request
+        const videoProjectState = transformStoryboardToVideoProjectState(sb);
+        let generations = await submitVideoGeneration(videoProjectState);
+
+        // 3. Set initial candidates (all in generating state)
+        setVideoCandidates(convertToVideoCandidates(generations));
+
+        // 4. Poll until complete
+        const maxAttempts = 200;
+        let attempts = 0;
+
+        while (attempts < maxAttempts) {
+          if (generations.status === "completed" || generations.status === "failed") {
+            break;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          generations = await pollGenerationStatus(generations);
+          attempts++;
+
+          // Update candidates with latest status
+          setVideoCandidates(convertToVideoCandidates(generations));
+        }
+
+        // 5. Check for failures
+        const failedCount = generations.segments.filter(
+          (s) => s.status === "failed"
+        ).length;
+
+        if (failedCount > 0) {
+          setFlashMessage(`${failedCount} video(s) failed to generate`);
+        }
+      } catch (error) {
+        console.error("Video generation failed:", error);
+        setFlashMessage("Video generation failed. Please try again.");
+      } finally {
+        setIsGeneratingVideos(false);
+      }
+    },
+    [setRightPanel, setIsGeneratingVideos, setVideoCandidates, setFlashMessage],
   );
 
   // Handle widget actions (placeholder for future use)
@@ -86,9 +147,22 @@ export function ChatKitPanel({ onChatKitReady, className }: ChatKitPanelProps) {
           applyStoryboard(EXAMPLE_STORYBOARD);
           break;
         }
+
+        case "start_video_generation": {
+          console.log(name, data);
+          // Use storyboard from the event data if available, otherwise use current storyboard
+          const projectState = data.state as ProjectStatePayload | undefined;
+          const sb = projectState
+            ? transformProjectStateToStoryboard(projectState)
+            : storyboard;
+          if (sb) {
+            startVideoGeneration(sb);
+          }
+          break;
+        }
       }
     },
-    [applyStoryboard],
+    [applyStoryboard, storyboard, startVideoGeneration],
   );
 
   const chatkit = useChatKit({

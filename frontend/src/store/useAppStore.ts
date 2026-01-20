@@ -76,6 +76,7 @@ type AppState = {
   // Video generation
   videoCandidates: VideoCandidate[];
   setVideoCandidates: (candidates: VideoCandidate[]) => void;
+  updateVideoCandidate: (id: string, updates: Partial<VideoCandidate>) => void;
   selectedVideoIds: Record<number, string>;
   selectVideo: (clipIndex: number, videoId: string) => void;
 
@@ -85,6 +86,7 @@ type AppState = {
   setStoryboard: (storyboard: Storyboard) => void;
   updateStoryboardDescription: (description: string) => void;
   updateClip: (clipIndex: number, updates: Partial<Clip>) => void;
+  removeClip: (clipIndex: number) => void;
 
   // Generation state
   isGeneratingVideos: boolean;
@@ -178,6 +180,12 @@ export const useAppStore = create<AppState>((set, get) => {
     // Video generation
     videoCandidates: [],
     setVideoCandidates: (candidates) => set({ videoCandidates: candidates }),
+    updateVideoCandidate: (id, updates) =>
+      set((state) => ({
+        videoCandidates: state.videoCandidates.map((c) =>
+          c.id === id ? { ...c, ...updates } : c
+        ),
+      })),
     selectedVideoIds: {},
     selectVideo: (clipIndex, videoId) =>
       set((state) => ({
@@ -199,6 +207,19 @@ export const useAppStore = create<AppState>((set, get) => {
         const newClips = [...state.storyboard.clips];
         newClips[clipIndex] = { ...newClips[clipIndex], ...updates } as Clip;
         return { storyboard: { ...state.storyboard, clips: newClips } };
+      }),
+    removeClip: (clipIndex) =>
+      set((state) => {
+        if (!state.storyboard) return state;
+        const newClips = state.storyboard.clips.filter((_, i) => i !== clipIndex);
+        const newTotalDuration = newClips.reduce((sum, clip) => sum + clip.duration, 0);
+        return {
+          storyboard: {
+            ...state.storyboard,
+            clips: newClips,
+            total_duration: newTotalDuration,
+          },
+        };
       }),
 
     // Generation state

@@ -3,7 +3,6 @@ import { useState } from "react";
 
 import { useAppStore } from "../store/useAppStore";
 import type { VideoCandidate, Translations } from "../types";
-import { MOCK_CLIPS, MOCK_VIDEO_CANDIDATES } from "../lib/mockData";
 import { t } from "../lib/i18n";
 import {
   Button,
@@ -24,8 +23,19 @@ export function ClipSelectionPanel({ className }: ClipSelectionPanelProps) {
   const selectedVideoIds = useAppStore((state) => state.selectedVideoIds);
   const isCreatingFinalVideo = useAppStore((state) => state.isCreatingFinalVideo);
   const setIsCreatingFinalVideo = useAppStore((state) => state.setIsCreatingFinalVideo);
+  const isGeneratingVideos = useAppStore((state) => state.isGeneratingVideos);
+  const storyboard = useAppStore((state) => state.storyboard);
+  const videoCandidates = useAppStore((state) => state.videoCandidates);
   const language = useAppStore((state) => state.language);
   const i18n = t(language);
+
+  const clips = storyboard?.clips ?? [];
+  const totalClips = clips.length;
+
+  // Check if all clips have at least one completed video
+  const allClipsHaveCompletedVideo = clips.every((_, idx) =>
+    videoCandidates.some((c) => c.clipIndex === idx && c.status === "completed")
+  );
 
   const handleCreateFinalVideo = async () => {
     setIsCreatingFinalVideo(true);
@@ -45,7 +55,7 @@ export function ClipSelectionPanel({ className }: ClipSelectionPanelProps) {
           variant="ghost"
           size="sm"
           onClick={() => setRightPanel("storyboard")}
-          disabled={isCreatingFinalVideo}
+          disabled={isCreatingFinalVideo || isGeneratingVideos}
         >
           {i18n.backToStoryboard}
         </Button>
@@ -57,12 +67,18 @@ export function ClipSelectionPanel({ className }: ClipSelectionPanelProps) {
             title={i18n.creatingFinalVideo}
             description={i18n.creatingFinalVideoDesc}
           />
+        ) : totalClips === 0 ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {i18n.noVideosForClip}
+            </p>
+          </div>
         ) : (
           <div className="space-y-2">
-            {MOCK_CLIPS.map((clip) => (
+            {clips.map((clip, index) => (
               <CollapsibleClipRow
-                key={clip.index}
-                clipIndex={clip.index}
+                key={index}
+                clipIndex={index}
                 sceneDescription={clip.scene_description}
                 duration={clip.duration}
                 i18n={i18n}
@@ -74,9 +90,15 @@ export function ClipSelectionPanel({ className }: ClipSelectionPanelProps) {
 
       <PanelFooter className="flex items-center justify-between">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          {i18n.clipSelectionStatus(Object.keys(selectedVideoIds).length, MOCK_CLIPS.length)}
+          {isGeneratingVideos
+            ? i18n.generatingVideosProgress ?? "Generating videos..."
+            : i18n.clipSelectionStatus(Object.keys(selectedVideoIds).length, totalClips)}
         </p>
-        <Button onClick={handleCreateFinalVideo} loading={isCreatingFinalVideo}>
+        <Button
+          onClick={handleCreateFinalVideo}
+          loading={isCreatingFinalVideo}
+          disabled={!allClipsHaveCompletedVideo || isGeneratingVideos}
+        >
           {isCreatingFinalVideo ? i18n.creating : i18n.createFinalVideo}
         </Button>
       </PanelFooter>
@@ -99,11 +121,15 @@ function CollapsibleClipRow({ clipIndex, sceneDescription, duration, i18n }: Col
   const [isExpanded, setIsExpanded] = useState(false);
   const selectedVideoIds = useAppStore((state) => state.selectedVideoIds);
   const selectVideo = useAppStore((state) => state.selectVideo);
+  const videoCandidates = useAppStore((state) => state.videoCandidates);
+  const isGeneratingVideos = useAppStore((state) => state.isGeneratingVideos);
 
-  const candidates = MOCK_VIDEO_CANDIDATES.filter((c) => c.clipIndex === clipIndex);
+  const candidates = videoCandidates.filter((c) => c.clipIndex === clipIndex);
   const selectedVideoId = selectedVideoIds[clipIndex];
   const selectedVideo = selectedVideoId ? candidates.find((c) => c.id === selectedVideoId) : undefined;
   const hasSelection = selectedVideoId !== undefined;
+  const isClipGenerating = candidates.some((c) => c.status === "generating" || c.status === "pending");
+  const hasCompletedVideo = candidates.some((c) => c.status === "completed");
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
@@ -123,10 +149,21 @@ function CollapsibleClipRow({ clipIndex, sceneDescription, duration, i18n }: Col
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {hasSelection && (
+          {isClipGenerating && (
+            <span className="flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+              <Spinner size="xs" />
+              {i18n.generating}
+            </span>
+          )}
+          {hasSelection && !isClipGenerating && (
             <span className="flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
               <CheckIcon className="h-3 w-3" />
               {i18n.selected}
+            </span>
+          )}
+          {hasCompletedVideo && !hasSelection && !isClipGenerating && (
+            <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              {candidates.filter((c) => c.status === "completed").length} ready
             </span>
           )}
           <span className="text-xs text-slate-500 dark:text-slate-400">
