@@ -8,10 +8,13 @@ import {
   CHATKIT_API_URL,
   GREETING,
   STARTER_PROMPTS,
+  QUICK_START_PROMPT,
   getPlaceholder,
 } from "../lib/config";
 import type { CatStatePayload } from "../lib/cat";
+import { EXAMPLE_STORYBOARD } from "../lib/exampleStoryboard";
 import { useAppStore } from "../store/useAppStore";
+import type { Storyboard } from "../store/useAppStore";
 
 export type ChatKit = ReturnType<typeof useChatKit>;
 
@@ -28,6 +31,7 @@ export function ChatKitPanel({
 
   // Select state
   const theme = useAppStore((state) => state.scheme);
+  const language = useAppStore((state) => state.language);
   const activeThread = useAppStore((state) => state.threadId);
   const setSpeech = useAppStore((state) => state.setSpeech);
   const setFlashMessage = useAppStore((state) => state.setFlashMessage);
@@ -35,6 +39,8 @@ export function ChatKitPanel({
   const cat = useAppStore((state) => state.cat);
   const refresh = useAppStore((state) => state.refreshCat);
   const applyUpdate = useAppStore((state) => state.applyCatUpdate);
+  const setStoryboard = useAppStore((state) => state.setStoryboard);
+  const setRightPanel = useAppStore((state) => state.setRightPanel);
 
   const handleStatusUpdate = useCallback(
     (state: CatStatePayload, flash?: string) => {
@@ -100,7 +106,21 @@ export function ChatKitPanel({
           setSpeech({message});
         }
       }
-    }, [])
+
+      if (name === "set_storyboard") {
+        const storyboard = data.storyboard as Storyboard | undefined;
+        if (storyboard) {
+          setStoryboard(storyboard);
+          setRightPanel("storyboard");
+        }
+      }
+
+      // Handle quick start demo - load example storyboard
+      if (name === "quick_start_demo") {
+        setStoryboard(EXAMPLE_STORYBOARD);
+        setRightPanel("storyboard");
+      }
+    }, [handleStatusUpdate, setSpeech, setStoryboard, setRightPanel])
 
   const chatkit = useChatKit({
     api: {
@@ -125,11 +145,11 @@ export function ChatKitPanel({
       radius: "round",
     },
     startScreen: {
-      greeting: GREETING,
-      prompts: STARTER_PROMPTS,
+      greeting: GREETING[language],
+      prompts: STARTER_PROMPTS[language],
     },
     composer: {
-      placeholder: getPlaceholder(cat.name),
+      placeholder: getPlaceholder(language, cat.name),
       attachments: {
         enabled: true,
         accept: { "image/*": [".png", ".jpg", ".jpeg", ".gif", ".webp"] },

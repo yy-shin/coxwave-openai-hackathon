@@ -3,14 +3,21 @@ import { useRef } from "react";
 
 import { ChatKitPanel } from "./components/ChatKitPanel";
 import type { ChatKit } from "./components/ChatKitPanel";
+import { FinalVideoPanel } from "./components/FinalVideoPanel";
 import { StoryboardPanel } from "./components/StoryboardPanel";
+import { VideoGenerationPanel } from "./components/VideoGenerationPanel";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { LanguageToggle } from "./components/LanguageToggle";
 import { useAppStore } from "./store/useAppStore";
+import { t } from "./lib/i18n";
 
 export default function App() {
   const chatkitRef = useRef<ChatKit | null>(null);
 
   const scheme = useAppStore((state) => state.scheme);
+  const language = useAppStore((state) => state.language);
+  const rightPanel = useAppStore((state) => state.rightPanel);
+  const i18n = t(language);
 
   const containerClass = clsx(
     "h-full bg-gradient-to-br transition-colors duration-300",
@@ -33,9 +40,10 @@ export default function App() {
             OvenAI
           </h1>
           <p className="hidden flex-1 text-sm text-slate-600 sm:block dark:text-slate-300">
-            AI로 비디오 광고를 쉽고 빠르게 만들어보세요.
+            {i18n.tagline}
           </p>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <LanguageToggle />
             <ThemeToggle />
           </div>
         </div>
@@ -45,9 +53,21 @@ export default function App() {
           className="relative h-[60vh] w-full shrink-0 overflow-hidden rounded-2xl bg-white/80 shadow-lg ring-1 ring-slate-200/60 backdrop-blur sm:rounded-3xl lg:h-[calc(100vh-140px)] lg:w-[380px] xl:w-[420px] dark:bg-slate-900/70 dark:ring-slate-800/60"
           onChatKitReady={(chatkit) => (chatkitRef.current = chatkit)}
         />
-        <StoryboardPanel
-          className="relative min-h-[400px] w-full flex-1 overflow-hidden rounded-2xl bg-white/80 shadow-lg ring-1 ring-slate-200/60 backdrop-blur sm:rounded-3xl lg:h-[calc(100vh-140px)] lg:min-h-0 dark:bg-slate-900/70 dark:ring-slate-800/60"
-        />
+        {rightPanel === "storyboard" && (
+          <StoryboardPanel
+            className="relative min-h-[400px] w-full flex-1 overflow-hidden rounded-2xl bg-white/80 shadow-lg ring-1 ring-slate-200/60 backdrop-blur sm:rounded-3xl lg:h-[calc(100vh-140px)] lg:min-h-0 dark:bg-slate-900/70 dark:ring-slate-800/60"
+          />
+        )}
+        {rightPanel === "video" && (
+          <VideoGenerationPanel
+            className="relative min-h-[400px] w-full flex-1 overflow-hidden rounded-2xl bg-white/80 shadow-lg ring-1 ring-slate-200/60 backdrop-blur sm:rounded-3xl lg:h-[calc(100vh-140px)] lg:min-h-0 dark:bg-slate-900/70 dark:ring-slate-800/60"
+          />
+        )}
+        {rightPanel === "final" && (
+          <FinalVideoPanel
+            className="relative min-h-[400px] w-full flex-1 overflow-hidden rounded-2xl bg-white/80 shadow-lg ring-1 ring-slate-200/60 backdrop-blur sm:rounded-3xl lg:h-[calc(100vh-140px)] lg:min-h-0 dark:bg-slate-900/70 dark:ring-slate-800/60"
+          />
+        )}
       </div>
     </div>
   );

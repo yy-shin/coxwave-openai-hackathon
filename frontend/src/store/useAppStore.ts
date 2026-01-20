@@ -1,17 +1,65 @@
 import { create } from "zustand";
 
-import { CAT_STATE_API_URL, THEME_STORAGE_KEY } from "../lib/config";
+import { CAT_STATE_API_URL, THEME_STORAGE_KEY, LANG_STORAGE_KEY } from "../lib/config";
 import type { CatSpeechPayload, CatStatePayload } from "../lib/cat";
 import { DEFAULT_CAT_STATE } from "../lib/cat";
+import type { Language } from "../lib/i18n";
 import confetti from "canvas-confetti";
 
 export type ColorScheme = "light" | "dark";
+export type RightPanelType = "storyboard" | "video" | "final";
 
 type SpeechState = (CatSpeechPayload & { id: number }) | null;
+
+export type VideoCandidate = {
+  id: string;
+  clipIndex: number;
+  url: string;
+  thumbnailUrl?: string;
+  model: string;
+  status: "pending" | "generating" | "completed" | "failed";
+};
+
+export type ImageInput = {
+  url?: string;
+  base64?: string;
+  mime_type?: "image/jpeg" | "image/png" | "image/webp";
+};
+
+export type BaseClip = {
+  scene_description: string;
+  prompt: string;
+  duration: number;
+  input_image?: ImageInput;
+};
+
+export type SoraClip = BaseClip & {
+  provider: "sora";
+  model?: "sora-2" | "sora-2-pro";
+};
+
+export type VeoClip = BaseClip & {
+  provider: "veo";
+  model?: "veo-3.1-generate-001" | "veo-3.1-fast-generate-001" | "veo-3.1-generate-preview" | "veo-3.1-fast-generate-preview";
+  negative_prompt?: string;
+  last_frame?: ImageInput;
+  reference_images?: ImageInput[];
+  num_outputs?: number;
+};
+
+export type Clip = SoraClip | VeoClip;
+
+export type Storyboard = {
+  description: string;
+  total_duration: number;
+  clips: Clip[];
+} | null;
 
 type AppState = {
   scheme: ColorScheme;
   setScheme: (scheme: ColorScheme) => void;
+  language: Language;
+  setLanguage: (language: Language) => void;
   threadId: string | null;
   setThreadId: (threadId: string | null) => void;
   cat: CatStatePayload;
@@ -21,6 +69,16 @@ type AppState = {
   setSpeech: (payload: CatSpeechPayload) => void;
   flashMessage: string | null;
   setFlashMessage: (message: string | null) => void;
+  rightPanel: RightPanelType;
+  setRightPanel: (panel: RightPanelType) => void;
+  videoCandidates: VideoCandidate[];
+  setVideoCandidates: (candidates: VideoCandidate[]) => void;
+  selectedVideoIds: Record<number, string>;
+  selectVideo: (clipIndex: number, videoId: string) => void;
+  storyboard: Storyboard;
+  setStoryboard: (storyboard: Storyboard) => void;
+  isGeneratingVideos: boolean;
+  setIsGeneratingVideos: (isGenerating: boolean) => void;
 };
 
 const SPEECH_TIMEOUT_MS = 10_000;
@@ -54,6 +112,24 @@ function getInitialScheme(): ColorScheme {
   return "light";
 }
 
+function getInitialLanguage(): Language {
+  if (typeof window === "undefined") {
+    return "ko";
+  }
+  const stored = window.localStorage.getItem(LANG_STORAGE_KEY) as Language | null;
+  if (stored === "ko" || stored === "en") {
+    return stored;
+  }
+  return "ko";
+}
+
+function syncLanguageWithStorage(language: Language) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(LANG_STORAGE_KEY, language);
+}
+
 function syncSchemeWithDocument(scheme: ColorScheme) {
   if (typeof document === "undefined" || typeof window === "undefined") {
     return;
@@ -79,6 +155,7 @@ function celebrateReveal() {
 
 export const useAppStore = create<AppState>((set, get) => {
   const initialScheme = getInitialScheme();
+  const initialLanguage = getInitialLanguage();
   syncSchemeWithDocument(initialScheme);
 
   return {
@@ -86,6 +163,11 @@ export const useAppStore = create<AppState>((set, get) => {
     setScheme: (scheme) => {
       syncSchemeWithDocument(scheme);
       set({ scheme });
+    },
+    language: initialLanguage,
+    setLanguage: (language) => {
+      syncLanguageWithStorage(language);
+      set({ language });
     },
     threadId: null,
     setThreadId: (threadId) => {
@@ -195,5 +277,46 @@ export const useAppStore = create<AppState>((set, get) => {
         flashTimer = null;
       }, FLASH_TIMEOUT_MS);
     },
+    rightPanel: "storyboard",
+    setRightPanel: (panel) => set({ rightPanel: panel }),
+    videoCandidates: [],
+    setVideoCandidates: (candidates) => set({ videoCandidates: candidates }),
+    selectedVideoIds: {},
+    selectVideo: (sceneId, videoId) =>
+      set((state) => ({
+        selectedVideoIds: { ...state.selectedVideoIds, [sceneId]: videoId },
+      })),
+    // TODO: 실제 연동 시 null로 복구
+    storyboard: {
+      description: "A high-energy game marketing video showcasing Cookie Run character transformation. Appeals to casual mobile gamers aged 18-35 through vibrant colors, dynamic action sequences, and character progression fantasy. Style: 2D animated with cel-shading effects.",
+      total_duration: 24,
+      clips: [
+        {
+          scene_description: "Opening shot: Cookie character appears in a magical forest",
+          provider: "veo",
+          prompt: "A cute 2D animated cookie character with big eyes stands in a colorful magical forest, sunlight filtering through trees, whimsical atmosphere, smooth animation, vibrant colors",
+          duration: 8,
+          negative_prompt: "blurry, low quality, distorted, realistic",
+          reference_images: [{ url: "https://example.com/cookie_character.png" }],
+        },
+        {
+          scene_description: "Transformation: Cookie gains superpowers with glowing effects",
+          provider: "veo",
+          prompt: "The cookie character begins glowing with golden energy, magical transformation sequence, swirling particles, dynamic camera movement, epic power-up moment, 2D animated style",
+          duration: 8,
+          negative_prompt: "blurry, distorted",
+          input_image: { url: "https://example.com/transformation_start.png" },
+        },
+        {
+          scene_description: "Finale: Superhero cookie in action pose with logo reveal",
+          provider: "sora",
+          prompt: "Superhero cookie character in heroic pose, cape flowing, magical energy surrounding them, camera pulls back to reveal Cookie Run logo, celebratory particle effects, 2D animated style",
+          duration: 8,
+        },
+      ],
+    },
+    setStoryboard: (storyboard) => set({ storyboard }),
+    isGeneratingVideos: false,
+    setIsGeneratingVideos: (isGenerating) => set({ isGeneratingVideos: isGenerating }),
   };
 });
