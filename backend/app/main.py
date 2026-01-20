@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import uuid
 from pathlib import Path
 from typing import Any
