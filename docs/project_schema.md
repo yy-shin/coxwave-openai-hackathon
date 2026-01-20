@@ -9,13 +9,13 @@
 Project
 ├── title              (project name)
 ├── description        (vivid description including appeal type, considerations)
-├── aspect_ratio       (16:9 or 9:16)
+├── aspect_ratio       (16:9 or 9:16, default: 9:16)
 ├── total_duration     (total video length in seconds)
 └── storyboard
     └── segments[]     (ordered list of video segments)
         ├── scene_description  (human-readable, not for AI)
         ├── duration           (segment duration in seconds)
-        └── generation_inputs[] (oneOf: SoraInput | VeoInput)
+        └── generation_inputs[1] (exactly 1 input: SoraInput | VeoInput)
             ├── SoraInput
             │   ├── provider: "sora"
             │   ├── model: sora-2 | sora-2-pro
@@ -62,8 +62,8 @@ Project
     "aspect_ratio": {
       "type": "string",
       "enum": ["16:9", "9:16"],
-      "default": "16:9",
-      "description": "Video aspect ratio for all segments"
+      "default": "9:16",
+      "description": "Video aspect ratio for all segments (default: portrait)"
     },
     "total_duration": {
       "type": "integer",
@@ -112,7 +112,8 @@ Project
             ]
           },
           "minItems": 1,
-          "description": "Multiple generation inputs for this segment (for comparison/selection)"
+          "maxItems": 1,
+          "description": "Single generation input for this segment"
         }
       }
     },
@@ -222,7 +223,7 @@ Project
 {
   "title": "Cookie Run Transformation Ad",
   "description": "A high-energy game marketing video showcasing Cookie Run character transformation. Appeals to casual mobile gamers aged 18-35 through vibrant colors, dynamic action sequences, and character progression fantasy. Style: 2D animated with cel-shading effects.",
-  "aspect_ratio": "16:9",
+  "aspect_ratio": "9:16",
   "total_duration": 24,
   "storyboard": {
     "segments": [
@@ -237,10 +238,6 @@ Project
             "reference_images": [
               { "url": "https://example.com/cookie_character.png" }
             ]
-          },
-          {
-            "provider": "sora",
-            "prompt": "A cute 2D animated cookie character with big expressive eyes standing in a vibrant magical forest, golden sunlight rays through colorful trees, whimsical fairy-tale atmosphere, smooth cel-shaded animation"
           }
         ]
       },

@@ -3,7 +3,15 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(git fetch:*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:docs.cloud.google.com)",
+      "WebFetch(domain:platform.openai.com)",
+      "Bash(git pull:*)",
+      "Bash(uvx check-jsonschema:*)",
+      "WebFetch(domain:googleapis.github.io)",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(uv run python:*)",
+      "Bash(uv run pytest:*)"
     ]
   }
 }

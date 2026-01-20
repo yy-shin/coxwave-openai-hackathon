@@ -7,3 +7,10 @@ __pycache__/
 .pytest_cache/
 .coverage/
 *.log
+
+# Test outputs
+test_outputs/
+*.mp4
+*.webm
+*.mov
+*.avi
