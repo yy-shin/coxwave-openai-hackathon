@@ -154,8 +154,10 @@ class SoraProvider(VideoProvider):
                 elif image.url:
                     # For URL, we need to download and re-upload
                     # Or use JSON format if API supports it
-                    # For now, download the image first
-                    img_response = await client.get(image.url, timeout=30.0)
+                    # For now, download the image first (follow redirects)
+                    img_response = await client.get(
+                        image.url, timeout=30.0, follow_redirects=True
+                    )
                     img_response.raise_for_status()
                     image_bytes = img_response.content
 
