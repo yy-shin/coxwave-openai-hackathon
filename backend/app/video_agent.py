@@ -365,6 +365,14 @@ async def start_video_generation(
     )
     await _sync_status(ctx, state, "Video generation started")
 
+    # Send client effect to frontend to trigger video generation API calls
+    await ctx.context.stream(
+        ClientEffectEvent(
+            name="start_video_generation",
+            data={"state": state.to_payload(ctx.context.thread.id)},
+        )
+    )
+
     return {
         "status": "generation_started",
         "segments": len(state.storyboard.segments),
