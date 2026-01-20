@@ -13,6 +13,9 @@ export type VideoCandidate = {
   thumbnailUrl?: string;
   model: string;
   status: "pending" | "generating" | "completed" | "failed";
+  // For merging
+  projectId: string;
+  inputIndex: number;
 };
 
 export type ImageInput = {
@@ -93,6 +96,10 @@ type AppState = {
   setIsGeneratingVideos: (isGenerating: boolean) => void;
   isCreatingFinalVideo: boolean;
   setIsCreatingFinalVideo: (isCreating: boolean) => void;
+
+  // Final video
+  finalVideoUrl: string | null;
+  setFinalVideoUrl: (url: string | null) => void;
 };
 
 const FLASH_TIMEOUT_MS = 10_000;
@@ -227,5 +234,9 @@ export const useAppStore = create<AppState>((set, get) => {
     setIsGeneratingVideos: (isGenerating) => set({ isGeneratingVideos: isGenerating }),
     isCreatingFinalVideo: false,
     setIsCreatingFinalVideo: (isCreating) => set({ isCreatingFinalVideo: isCreating }),
+
+    // Final video
+    finalVideoUrl: null,
+    setFinalVideoUrl: (url) => set({ finalVideoUrl: url }),
   };
 });

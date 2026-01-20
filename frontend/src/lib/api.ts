@@ -177,6 +177,8 @@ export function convertToVideoCandidates(
             : result.video.status === "in_progress"
               ? "generating"
               : result.video.status,
+        projectId,
+        inputIndex: result.input_index,
       });
     }
   }
@@ -186,4 +188,36 @@ export function convertToVideoCandidates(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Video segment info for merging
+ */
+export type VideoSegmentInfo = {
+  project_id: string;
+  segment_index: number;
+  input_index: number;
+  video_id: string;
+};
+
+/**
+ * Merge multiple video segments into a single video
+ */
+export async function mergeVideos(
+  videos: VideoSegmentInfo[]
+): Promise<{ url: string; output_id: string }> {
+  const response = await fetch(`${API_BASE_URL}/merge-videos`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ videos }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to merge videos: ${error}`);
+  }
+
+  return response.json();
 }

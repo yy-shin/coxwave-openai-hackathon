@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAppStore } from "../store/useAppStore";
 import type { VideoCandidate, Translations } from "../types";
 import { t } from "../lib/i18n";
+import { mergeVideos } from "../lib/api";
 import {
   Button,
   PanelLayout,
@@ -23,6 +24,8 @@ export function ClipSelectionPanel({ className }: ClipSelectionPanelProps) {
   const selectedVideoIds = useAppStore((state) => state.selectedVideoIds);
   const isCreatingFinalVideo = useAppStore((state) => state.isCreatingFinalVideo);
   const setIsCreatingFinalVideo = useAppStore((state) => state.setIsCreatingFinalVideo);
+  const setFinalVideoUrl = useAppStore((state) => state.setFinalVideoUrl);
+  const setFlashMessage = useAppStore((state) => state.setFlashMessage);
   const isGeneratingVideos = useAppStore((state) => state.isGeneratingVideos);
   const storyboard = useAppStore((state) => state.storyboard);
   const videoCandidates = useAppStore((state) => state.videoCandidates);
@@ -39,9 +42,42 @@ export function ClipSelectionPanel({ className }: ClipSelectionPanelProps) {
 
   const handleCreateFinalVideo = async () => {
     setIsCreatingFinalVideo(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsCreatingFinalVideo(false);
-    setRightPanel("final");
+
+    try {
+      // Collect selected videos in order
+      const videosToMerge = clips
+        .map((_, clipIndex) => {
+          const selectedId = selectedVideoIds[clipIndex];
+          if (!selectedId) return null;
+          const candidate = videoCandidates.find((c) => c.id === selectedId);
+          if (!candidate || candidate.status !== "completed") return null;
+          return {
+            project_id: candidate.projectId,
+            segment_index: candidate.clipIndex,
+            input_index: candidate.inputIndex,
+            video_id: candidate.id,
+          };
+        })
+        .filter((v): v is NonNullable<typeof v> => v !== null);
+
+      if (videosToMerge.length !== clips.length) {
+        setFlashMessage("Please select a video for each clip");
+        setIsCreatingFinalVideo(false);
+        return;
+      }
+
+      console.log("[handleCreateFinalVideo] Merging videos:", videosToMerge);
+      const result = await mergeVideos(videosToMerge);
+      console.log("[handleCreateFinalVideo] Merge result:", result);
+
+      setFinalVideoUrl(result.url);
+      setRightPanel("final");
+    } catch (error) {
+      console.error("[handleCreateFinalVideo] Error:", error);
+      setFlashMessage("Failed to create final video. Please try again.");
+    } finally {
+      setIsCreatingFinalVideo(false);
+    }
   };
 
   return (

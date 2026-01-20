@@ -26,6 +26,14 @@ export default defineConfig({
         target: backendTarget,
         changeOrigin: true,
       },
+      "/merge-videos": {
+        target: backendTarget,
+        changeOrigin: true,
+      },
+      "/merged-videos": {
+        target: backendTarget,
+        changeOrigin: true,
+      },
       "/cats": {
         target: backendTarget,
         changeOrigin: true,

@@ -6,9 +6,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
+
+from pydantic import BaseModel
 
 from chatkit.server import StreamingResult
 from chatkit.store import NotFoundError
@@ -161,6 +165,112 @@ async def serve_video(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Video not found: {video_id}",
+        )
+
+    return FileResponse(file_path, media_type="video/mp4")
+
+
+class VideoSegmentInfo(BaseModel):
+    """Information to locate a video segment."""
+
+    project_id: str
+    segment_index: int
+    input_index: int
+    video_id: str
+
+
+class MergeVideosRequest(BaseModel):
+    """Request to merge multiple video segments into one."""
+
+    videos: list[VideoSegmentInfo]
+
+
+class MergeVideosResponse(BaseModel):
+    """Response containing the merged video URL."""
+
+    url: str
+    output_id: str
+
+
+@app.post("/merge-videos")
+async def merge_videos(request: MergeVideosRequest) -> MergeVideosResponse:
+    """Merge multiple video segments into a single video using FFmpeg."""
+    if not request.videos:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No videos provided",
+        )
+
+    # Collect video file paths
+    video_paths: list[Path] = []
+    for video_info in request.videos:
+        file_path = get_video_local_path(
+            _PROJECT_ROOT,
+            video_info.project_id,
+            video_info.segment_index,
+            video_info.input_index,
+            video_info.video_id,
+        )
+        if not file_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Video not found: {video_info.video_id}",
+            )
+        video_paths.append(file_path)
+
+    # Create output directory and file
+    output_id = str(uuid.uuid4())
+    output_dir = _PROJECT_ROOT / "data" / "merged_videos"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{output_id}.mp4"
+
+    # Create concat file for FFmpeg
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        for video_path in video_paths:
+            f.write(f"file '{video_path}'\n")
+        concat_file = f.name
+
+    try:
+        # Run FFmpeg to concatenate videos
+        result = subprocess.run(
+            [
+                "ffmpeg",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", concat_file,
+                "-c", "copy",
+                "-y",
+                str(output_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"FFmpeg error: {result.stderr}",
+            )
+
+    finally:
+        # Clean up concat file
+        Path(concat_file).unlink(missing_ok=True)
+
+    return MergeVideosResponse(
+        url=f"/merged-videos/{output_id}",
+        output_id=output_id,
+    )
+
+
+@app.get("/merged-videos/{output_id}")
+async def serve_merged_video(output_id: str) -> FileResponse:
+    """Serve a merged video file."""
+    file_path = _PROJECT_ROOT / "data" / "merged_videos" / f"{output_id}.mp4"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Merged video not found: {output_id}",
         )
 
     return FileResponse(file_path, media_type="video/mp4")

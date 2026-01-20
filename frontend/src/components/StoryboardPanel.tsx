@@ -80,6 +80,12 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
         pollInterval: 3000,
         onProgress: (progress: VideoGenerations) => {
           console.log("[handleGenerateVideos] Poll progress:", progress.status);
+          // Log individual video statuses
+          progress.segments.forEach((seg, i) => {
+            seg.generation_results.forEach((r) => {
+              console.log(`  Segment ${i}: ${r.video.status} (${r.video.id.slice(-8)})`);
+            });
+          });
 
           // Update video candidates in real-time so completed videos show up immediately
           const updatedCandidates = convertToVideoCandidates(progress);

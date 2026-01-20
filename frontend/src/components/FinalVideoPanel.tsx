@@ -17,9 +17,12 @@ type FinalVideoPanelProps = {
 
 export function FinalVideoPanel({ className }: FinalVideoPanelProps) {
   const setRightPanel = useAppStore((state) => state.setRightPanel);
+  const finalVideoUrl = useAppStore((state) => state.finalVideoUrl);
   const language = useAppStore((state) => state.language);
   const i18n = t(language);
   const hasTriggeredConfetti = useRef(false);
+
+  const videoSrc = finalVideoUrl || "/mock_video/final.mp4";
 
   useEffect(() => {
     if (hasTriggeredConfetti.current) return;
@@ -79,8 +82,9 @@ export function FinalVideoPanel({ className }: FinalVideoPanelProps) {
               autoPlay
               muted
               loop
+              key={videoSrc}
             >
-              <source src="/mock_video/final.mp4" type="video/mp4" />
+              <source src={videoSrc} type="video/mp4" />
               {i18n.videoNotPlayable}
             </video>
           </div>
@@ -94,7 +98,7 @@ export function FinalVideoPanel({ className }: FinalVideoPanelProps) {
         </Button>
         <Button onClick={() => {
           const link = document.createElement("a");
-          link.href = "/mock_video/final.mp4";
+          link.href = videoSrc;
           link.download = "ovenai-video.mp4";
           link.click();
         }}>

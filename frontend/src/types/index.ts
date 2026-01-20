@@ -53,6 +53,9 @@ export type VideoCandidate = {
   thumbnailUrl?: string;
   model: string;
   status: VideoStatus;
+  // For merging
+  projectId: string;
+  inputIndex: number;
 };
 
 // ============================================
