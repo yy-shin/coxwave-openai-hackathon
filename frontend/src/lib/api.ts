@@ -158,13 +158,17 @@ export function convertToVideoCandidates(
   generations: VideoGenerations
 ): VideoCandidate[] {
   const candidates: VideoCandidate[] = [];
+  const projectId = generations.project_id;
 
   for (const segment of generations.segments) {
     for (const result of segment.generation_results) {
+      // Construct local video URL using the backend endpoint
+      const localVideoUrl = `/videos/${projectId}/${segment.segment_index}/${result.input_index}/${result.video.id}`;
+
       candidates.push({
         id: result.video.id,
         clipIndex: segment.segment_index,
-        url: result.video.video_url ?? "",
+        url: result.video.status === "completed" ? localVideoUrl : "",
         thumbnailUrl: result.video.thumbnail_url,
         model: result.provider,
         status:

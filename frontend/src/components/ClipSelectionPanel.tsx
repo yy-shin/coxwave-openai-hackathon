@@ -75,6 +75,14 @@ export function ClipSelectionPanel({ className }: ClipSelectionPanelProps) {
           </div>
         ) : (
           <div className="space-y-2">
+            {/* Generation Progress Banner */}
+            {isGeneratingVideos && (
+              <GenerationProgressBanner
+                videoCandidates={videoCandidates}
+                totalClips={totalClips}
+                i18n={i18n}
+              />
+            )}
             {clips.map((clip, index) => (
               <CollapsibleClipRow
                 key={index}
@@ -103,6 +111,64 @@ export function ClipSelectionPanel({ className }: ClipSelectionPanelProps) {
         </Button>
       </PanelFooter>
     </PanelLayout>
+  );
+}
+
+// ============================================
+// Generation Progress Banner
+// ============================================
+
+type GenerationProgressBannerProps = {
+  videoCandidates: VideoCandidate[];
+  totalClips: number;
+  i18n: Translations;
+};
+
+function GenerationProgressBanner({ videoCandidates, totalClips, i18n }: GenerationProgressBannerProps) {
+  // Count completed clips (clips that have at least one completed video)
+  const completedClips = new Set(
+    videoCandidates
+      .filter((c) => c.status === "completed")
+      .map((c) => c.clipIndex)
+  ).size;
+
+  const completedVideos = videoCandidates.filter((c) => c.status === "completed").length;
+  const totalVideos = videoCandidates.length;
+  const progressPercent = totalVideos > 0 ? (completedVideos / totalVideos) * 100 : 0;
+
+  return (
+    <div className="mb-2 overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:border-blue-800 dark:from-blue-900/20 dark:to-indigo-900/20">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
+          {/* Animated spinner ring */}
+          <div className="absolute inset-0 animate-spin rounded-full border-2 border-blue-200 border-t-blue-500 dark:border-blue-700 dark:border-t-blue-400" />
+          <VideoIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+            {i18n.generatingVideos}
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-400">
+            {completedClips}/{totalClips} {i18n.clipsCompleted} · {completedVideos}/{totalVideos} {i18n.videos}
+          </p>
+        </div>
+
+        <div className="shrink-0 text-right">
+          <span className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+            {Math.round(progressPercent)}%
+          </span>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 w-full bg-blue-100 dark:bg-blue-900/50">
+        <div
+          className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 ease-out"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -334,6 +400,24 @@ function CheckIcon({ className }: { className?: string }) {
         fillRule="evenodd"
         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
         clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function VideoIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
       />
     </svg>
   );

@@ -12,13 +12,14 @@ from typing import Any
 
 from chatkit.server import StreamingResult
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from starlette.responses import JSONResponse
 
 from .server import VideoAssistantServer, create_chatkit_server
 from .tools.video_generations import (
     VideoGenerations,
     generate_videos_from_project,
+    get_video_local_path,
     poll_and_save_video_generations,
 )
 from .video_project_state import VideoProjectState
@@ -96,3 +97,24 @@ async def poll_generation_status(generations: VideoGenerations) -> VideoGenerati
     Downloads completed videos to local storage.
     """
     return await poll_and_save_video_generations(generations, _PROJECT_ROOT)
+
+
+@app.get("/videos/{project_id}/{segment_index}/{input_index}/{video_id}")
+async def serve_video(
+    project_id: str,
+    segment_index: int,
+    input_index: int,
+    video_id: str,
+) -> FileResponse:
+    """Serve a generated video file."""
+    file_path = get_video_local_path(
+        _PROJECT_ROOT, project_id, segment_index, input_index, video_id
+    )
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Video not found: {video_id}",
+        )
+
+    return FileResponse(file_path, media_type="video/mp4")

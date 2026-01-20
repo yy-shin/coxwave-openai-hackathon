@@ -22,6 +22,10 @@ export default defineConfig({
         target: backendTarget,
         changeOrigin: true,
       },
+      "/videos": {
+        target: backendTarget,
+        changeOrigin: true,
+      },
       "/cats": {
         target: backendTarget,
         changeOrigin: true,

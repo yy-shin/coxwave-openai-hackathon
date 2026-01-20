@@ -65,14 +65,26 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
       const generations = await submitVideoGeneration(videoProjectState);
       console.log("[handleGenerateVideos] Generation submitted:", generations);
 
+      // Move to video panel IMMEDIATELY after submission (before polling)
+      setRightPanel("video");
+
+      // Initialize video candidates from initial generation state
+      const initialCandidates = convertToVideoCandidates(generations);
+      setVideoCandidates(initialCandidates);
+
       setGenerationProgress(i18n.generatingVideosProgress ?? "Generating videos...");
 
-      // Poll until complete
+      // Poll until complete, updating video candidates on each progress
       console.log("[handleGenerateVideos] Starting polling...");
       const completedGenerations = await pollUntilComplete(generations, {
         pollInterval: 3000,
         onProgress: (progress: VideoGenerations) => {
           console.log("[handleGenerateVideos] Poll progress:", progress.status);
+
+          // Update video candidates in real-time so completed videos show up immediately
+          const updatedCandidates = convertToVideoCandidates(progress);
+          setVideoCandidates(updatedCandidates);
+
           const completedCount = progress.segments.filter(
             (s) => s.status === "completed"
           ).length;
@@ -84,7 +96,7 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
       });
       console.log("[handleGenerateVideos] Polling complete:", completedGenerations);
 
-      // Convert to video candidates and store
+      // Final update with completed generations
       const candidates = convertToVideoCandidates(completedGenerations);
       console.log("[handleGenerateVideos] Video candidates:", candidates);
       setVideoCandidates(candidates);
@@ -100,8 +112,6 @@ export function StoryboardPanel({ className }: StoryboardPanelProps) {
             `${failedCount} video(s) failed to generate`
         );
       }
-
-      setRightPanel("video");
     } catch (error) {
       console.error("[handleGenerateVideos] Error:", error);
       setFlashMessage(
